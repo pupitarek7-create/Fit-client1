@@ -5,7 +5,11 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.resource.ResourcePackActivationType;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.Minecraft;
@@ -14,7 +18,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 public class FitClient implements ClientModInitializer {
-    public static final List<Module> MODULES = List.of(SusChunks.MODULE, SusChunks.HUD);
+    public static final List<Module> MODULES = Modules.ALL;
     private boolean shiftWasDown = false;
     private boolean f7WasDown = false;
     private static boolean pendingOpen = false;
@@ -51,21 +55,15 @@ public class FitClient implements ClientModInitializer {
 
             if (mc.level == null) SusChunks.clear();
             SusChunks.tick(mc);
+            for (Module m : MODULES) m.tick(mc);
         });
 
-        HudRenderCallback.EVENT.register((ctx, tick) -> {
-            Minecraft mc = Minecraft.getInstance();
-            if (!SusChunks.MODULE.enabled || !SusChunks.HUD.enabled || mc.screen != null) return;
-            int y = 8;
-            ctx.drawString(mc.font, "SUS CHUNKS", 8, y, ClickGui.ACCENT, true);
-            y += 11;
-            var hits = SusChunks.hits();
-            for (int i = 0; i < Math.min(3, hits.size()); i++) {
-                var h = hits.get(i);
-                ctx.drawString(mc.font,
-                        (SusChunks.cx(h.pos()) * 16 + 8) + ", " + (SusChunks.cz(h.pos()) * 16 + 8) + "  [" + h.clusterScore() + "]", 8, y, 0xFFFFFFFF, true);
-                y += 10;
-            }
-        });
+        HudRenderCallback.EVENT.register((ctx, tick) -> Modules.drawHud(ctx, Minecraft.getInstance()));
+        SusRender.init();
+
+        FabricLoader.getInstance().getModContainer("fitclient").ifPresent(container ->
+                ResourceManagerHelper.registerBuiltinResourcePack(
+                        Identifier.fromNamespaceAndPath("fitclient", "dumbbell"), container,
+                        Component.literal("Fit Client Dumbbells"), ResourcePackActivationType.NORMAL));
     }
 }

@@ -31,6 +31,7 @@ import java.util.function.Predicate;
 public class SusChunks {
     public static final Module MODULE = new Module("Sus Chunks", "Finds chunks that look player built", "F7");
     public static final Module HUD = new Module("Sus HUD", "Top suspicious chunks on screen", "");
+    public static final Module BEAMS = new Module("Sus Highlight", "Glowing beams around sus chunks", "");
 
     // settings (editable from the Settings tab)
     public static int radius = 16;      // chunks around you
