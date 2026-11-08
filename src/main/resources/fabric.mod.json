@@ -1,18 +1,19 @@
 {
-  "schemaVersion": 1,
-  "id": "fitclient",
-  "version": "1.0.0",
-  "name": "Fit Client",
-  "description": "Menu and Sus Chunks scanner.",
-  "authors": ["you"],
-  "license": "MIT",
-  "environment": "client",
-  "entrypoints": {
-    "client": ["net.fitclient.FitClient"]
-  },
-  "depends": {
-    "fabricloader": ">=0.17.0",
-    "minecraft": "1.21.11",
-    "fabric-api": "*"
-  }
+	"schemaVersion": 1,
+	"id": "fitclient",
+	"version": "${version}",
+	"name": "Fit Client",
+	"description": "Fit Client menu and Sus Chunks scanner.",
+	"authors": ["pupitarek7-create"],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["net.fitclient.FitClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
 }

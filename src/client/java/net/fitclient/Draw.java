@@ -1,13 +1,13 @@
 package net.fitclient;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** Small 2D drawing helpers: rounded rectangles, outlines, the "F" mark. */
 public final class Draw {
     private Draw() {}
 
     /** Filled rounded rectangle, drawn as horizontal scanlines. */
-    public static void round(DrawContext c, int x, int y, int w, int h, int r, int color) {
+    public static void round(GuiGraphics c, int x, int y, int w, int h, int r, int color) {
         r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
         for (int dy = 0; dy < h; dy++) {
             int inset = 0;
@@ -23,13 +23,13 @@ public final class Draw {
     }
 
     /** Rounded rectangle with a 1px border. */
-    public static void roundBorder(DrawContext c, int x, int y, int w, int h, int r, int border, int fill) {
+    public static void roundBorder(GuiGraphics c, int x, int y, int w, int h, int r, int border, int fill) {
         round(c, x, y, w, h, r, border);
         round(c, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill);
     }
 
     /** Slanted, bold "F" built from rectangles. size = height in pixels. */
-    public static void fMark(DrawContext c, int x, int y, int size, int color) {
+    public static void fMark(GuiGraphics c, int x, int y, int size, int color) {
         int stem = Math.max(3, size / 3);
         int shear = size / 4;
         int topH = Math.max(3, size / 4);

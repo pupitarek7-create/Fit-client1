@@ -1,17 +1,18 @@
 package net.fitclient;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.chunk.ChunkSection;
-import net.minecraft.world.chunk.ChunkStatus;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -58,19 +59,19 @@ public class SusChunks {
 
     private static final Predicate<BlockState> UNNATURAL_PRED = s -> UNNATURAL.contains(s.getBlock());
 
-    public static void tick(MinecraftClient mc) {
-        if (!MODULE.enabled || mc.world == null || mc.player == null) return;
+    public static void tick(Minecraft mc) {
+        if (!MODULE.enabled || mc.level == null || mc.player == null) return;
 
-        ChunkPos center = mc.player.getChunkPos();
+        ChunkPos center = mc.player.chunkPosition();
         int side = radius * 2 + 1;
         int total = side * side;
         for (int i = 0; i < perTick; i++) {
             cursor = (cursor + 1) % total;
-            int cx = center.x - radius + cursor % side;
-            int cz = center.z - radius + cursor / side;
-            WorldChunk chunk = mc.world.getChunkManager().getChunk(cx, cz, ChunkStatus.FULL, false);
-            long key = ChunkPos.toLong(cx, cz);
-            if (chunk == null) { results.remove(key); continue; }
+            int cx = cx(center) - radius + cursor % side;
+            int cz = cz(center) - radius + cursor / side;
+            ChunkAccess access = mc.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
+            long key = ChunkPos.asLong(cx, cz);
+            if (!(access instanceof LevelChunk chunk)) { results.remove(key); continue; }
             results.put(key, scan(chunk));
         }
 
@@ -80,28 +81,28 @@ public class SusChunks {
         }
     }
 
-    private static Result scan(WorldChunk chunk) {
+    private static Result scan(LevelChunk chunk) {
         int storage = 0;
         boolean spawner = false;
-        for (BlockPos p : chunk.getBlockEntityPositions()) {
+        for (BlockPos p : chunk.getBlockEntitiesPos()) {
             BlockEntity be = chunk.getBlockEntity(p);
             if (be == null) continue;
             BlockEntityType<?> t = be.getType();
-            if (t == BlockEntityType.MOB_SPAWNER) spawner = true;
+            if (t == BlockEntityType.SPAWNER) spawner = true;
             else if (STORAGE.contains(t)) storage++;
         }
         if (spawner) storage = Math.max(0, storage - 3); // dungeon / mineshaft chests
 
         int flags = 0;
-        for (ChunkSection s : chunk.getSectionArray()) {
-            if (s == null || s.isEmpty()) continue;
-            if (s.hasAny(UNNATURAL_PRED)) flags++;
+        for (LevelChunkSection s : chunk.getSections()) {
+            if (s == null || s.hasOnlyAir()) continue;
+            if (s.maybeHas(UNNATURAL_PRED)) flags++;
         }
         int score = storage * 3 + flags * 2;
         return new Result(storage, flags, spawner, score);
     }
 
-    private static void refresh(MinecraftClient mc, ChunkPos center) {
+    private static void refresh(Minecraft mc, ChunkPos center) {
         List<Hit> out = new ArrayList<>();
         for (Map.Entry<Long, Result> e : results.entrySet()) {
             Result r = e.getValue();
@@ -111,7 +112,7 @@ public class SusChunks {
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dz = -1; dz <= 1; dz++) {
                     if (dx == 0 && dz == 0) continue;
-                    Result n = results.get(ChunkPos.toLong(cp.x + dx, cp.z + dz));
+                    Result n = results.get(ChunkPos.asLong(cx(cp) + dx, cz(cp) + dz));
                     if (n != null) cluster += n.score() * 0.5;
                 }
             }
@@ -121,16 +122,20 @@ public class SusChunks {
         hits = out.size() > 50 ? out.subList(0, 50) : out;
 
         for (Hit h : hits) {
-            if (notified.add(h.pos().toLong()) && mc.player != null) {
-                mc.player.sendMessage(Text.literal("[Fit] sus chunk at " + (h.pos().x * 16 + 8)
-                        + ", " + (h.pos().z * 16 + 8) + "  score " + h.clusterScore()), false);
+            if (notified.add(ChunkPos.asLong(cx(h.pos()), cz(h.pos()))) && mc.player != null) {
+                mc.player.displayClientMessage(Component.literal("[Fit] sus chunk at " + (cx(h.pos()) * 16 + 8)
+                        + ", " + (cz(h.pos()) * 16 + 8) + "  score " + h.clusterScore()), false);
             }
         }
     }
 
+    /** ChunkPos component access in one place (record accessor in recent versions). */
+    public static int cx(ChunkPos p) { return p.x(); }
+    public static int cz(ChunkPos p) { return p.z(); }
+
     public static List<Hit> hits() { return hits; }
 
-    public static Result resultAt(int cx, int cz) { return results.get(ChunkPos.toLong(cx, cz)); }
+    public static Result resultAt(int cx, int cz) { return results.get(ChunkPos.asLong(cx, cz)); }
 
     public static void clear() {
         results.clear(); notified.clear(); hits = List.of(); cursor = 0;
