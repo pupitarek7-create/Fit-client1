@@ -2,10 +2,10 @@ package net.fitclient;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.phys.Vec3;
 
 /** Draws glowing beam outlines around sus chunks in the world. */
@@ -13,7 +13,7 @@ public final class SusRender {
     private SusRender() {}
 
     public static void init() {
-        WorldRenderEvents.AFTER_TRANSLUCENT.register(SusRender::render);
+        WorldRenderEvents.END_MAIN.register(SusRender::render);
     }
 
     private static void render(WorldRenderContext ctx) {
@@ -24,7 +24,7 @@ public final class SusRender {
         if (mc.level == null || mc.player == null) return;
 
         PoseStack ps = ctx.matrices();
-        VertexConsumer vc = ctx.consumers().getBuffer(RenderType.lines());
+        VertexConsumer vc = ctx.consumers().getBuffer(RenderTypes.lines());
         Vec3 cam = mc.gameRenderer.getMainCamera().position();
         PoseStack.Pose pose = ps.last();
 
