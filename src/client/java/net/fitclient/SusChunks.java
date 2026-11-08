@@ -88,7 +88,7 @@ public class SusChunks {
             BlockEntity be = chunk.getBlockEntity(p);
             if (be == null) continue;
             BlockEntityType<?> t = be.getType();
-            if (t == BlockEntityType.SPAWNER) spawner = true;
+            if (t == BlockEntityType.MOB_SPAWNER) spawner = true;
             else if (STORAGE.contains(t)) storage++;
         }
         if (spawner) storage = Math.max(0, storage - 3); // dungeon / mineshaft chests
@@ -130,8 +130,8 @@ public class SusChunks {
     }
 
     /** ChunkPos component access in one place (record accessor in recent versions). */
-    public static int cx(ChunkPos p) { return p.x(); }
-    public static int cz(ChunkPos p) { return p.z(); }
+    public static int cx(ChunkPos p) { return p.x; }
+    public static int cz(ChunkPos p) { return p.z; }
 
     public static List<Hit> hits() { return hits; }
 
