@@ -26,8 +26,13 @@ jobs:
       - name: inspect api (temporary)
         if: always()
         run: |
-          for j in $(find ~/.gradle -name 'fabric-rendering-v1*.jar' ! -name '*sources*' | head -3); do echo "== $j"; unzip -l $j | grep -iE "WorldRender" | head -30; done
-          for j in $(find ~/.gradle -name '*minecraft*merged*.jar' -o -name 'minecraft-clientOnly*.jar' | head -3); do echo "== $j"; unzip -l $j | grep -E "renderer/rendertype/|renderer/RenderType|ShapeRenderer|renderer/debug/DebugRenderer\.class" | head -30; done
+          FJ=$(find ~/.gradle -name 'fabric-rendering-v1*.jar' ! -name '*sources*' | head -1)
+          javap -cp "$FJ" net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext 'net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents$BeforeTranslucent' 'net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents$EndMain' | head -80
+          echo ---JARS; find ~/.gradle/caches/fabric-loom -name '*.jar' | head -20
+          MJ=$(find ~/.gradle/caches/fabric-loom -name '*.jar' | xargs -I{} sh -c 'unzip -l {} 2>/dev/null | grep -q "net/minecraft/client/Minecraft.class" && echo {}' | head -1)
+          echo MJ=$MJ
+          unzip -l "$MJ" | grep -E "renderer/rendertype/|renderer/RenderType|renderer/ShapeRenderer|vertex/VertexConsumer|vertex/PoseStack" | head -40
+          javap -cp "$MJ" com.mojang.blaze3d.vertex.VertexConsumer | head -40
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
