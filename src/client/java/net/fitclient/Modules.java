@@ -32,7 +32,7 @@ public final class Modules {
     public static final Module KEYS = new Module("Keystrokes", "WASD and jump overlay", "");
 
     public static final List<Module> ALL = List.of(
-            SusChunks.MODULE, SusChunks.BEAMS, SusChunks.HUD, DUMBBELL, FULLBRIGHT, COORDS, KEYS);
+            SusChunks.MODULE, SusChunks.BEAMS, SusChunks.STORAGE_ESP, SusChunks.HUD, DUMBBELL, FULLBRIGHT, COORDS, KEYS);
 
     // ------------------------------------------------------------ dumbbell pack toggle
     private static void applyDumbbell(Module m) {

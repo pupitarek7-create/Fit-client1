@@ -23,6 +23,11 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      - name: inspect render types (temporary)
+        if: always()
+        run: |
+          MJ=$(find ~/.gradle/caches/fabric-loom/minecraftMaven -name 'minecraft-clientonly-1*.jar' ! -name '*intermediary*' | head -1)
+          javap -cp "$MJ" net.minecraft.client.renderer.rendertype.RenderTypes | grep -iE "line|debug|quad|filled|outline|translucent" | head -40
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:

@@ -17,6 +17,7 @@ public class Module {
         this.name = name; this.description = description; this.keyLabel = keyLabel;
     }
 
+    public Module on() { this.enabled = true; this.anim = 1f; return this; }
     public Module onToggle(Consumer<Module> c) { this.onToggle = c; return this; }
     public Module onTick(Consumer<Minecraft> c) { this.onTick = c; return this; }
 

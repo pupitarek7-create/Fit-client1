@@ -10,6 +10,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -29,17 +30,19 @@ import java.util.function.Predicate;
  * Scores are heuristics. Villages and other structures also trigger them, so expect false positives.
  */
 public class SusChunks {
-    public static final Module MODULE = new Module("Sus Chunks", "Finds chunks that look player built", "F7");
-    public static final Module HUD = new Module("Sus HUD", "Top suspicious chunks on screen", "");
-    public static final Module BEAMS = new Module("Sus Highlight", "Glowing beams around sus chunks", "");
+    public static final Module MODULE = new Module("Sus Chunks", "Finds chunks that look player built", "F7").on();
+    public static final Module HUD = new Module("Sus HUD", "Top suspicious chunks on screen", "").on();
+    public static final Module BEAMS = new Module("Sus Highlight", "Glowing plane on sus chunks", "").on();
+    public static final Module STORAGE_ESP = new Module("Storage ESP", "Boxes around chests, barrels, shulkers", "").on();
 
     // settings (editable from the Settings tab)
     public static int radius = 16;      // chunks around you
-    public static int perTick = 6;      // chunks scanned per tick
+    public static int perTick = 3;      // chunks scanned per tick
     public static int threshold = 12;   // cluster score that counts as "sus"
 
-    public record Result(int storage, int flags, boolean spawner, int score) {}
-    public record Hit(ChunkPos pos, int clusterScore, int storage) {}
+    /** storagePos: packed BlockPos longs, storageKind: colour group per entry (see kindColor). */
+    public record Result(int storage, int flags, boolean spawner, int score, long[] storagePos, byte[] storageKind, long scannedAt) {}
+    public record Hit(ChunkPos pos, int clusterScore, int storage, int surfaceY) {}
 
     private static final Map<Long, Result> results = new HashMap<>();
     private static final Set<Long> notified = new HashSet<>();
@@ -58,22 +61,38 @@ public class SusChunks {
             Blocks.BEACON, Blocks.TNT, Blocks.OBSERVER, Blocks.PISTON, Blocks.STICKY_PISTON,
             Blocks.REDSTONE_LAMP, Blocks.NOTE_BLOCK, Blocks.JUKEBOX, Blocks.LECTERN));
 
+    /** 0 chest, 1 barrel, 2 shulker, 3 ender chest, 4 other (furnace, hopper, ...) */
+    private static byte kind(BlockEntityType<?> t) {
+        if (t == BlockEntityType.CHEST || t == BlockEntityType.TRAPPED_CHEST) return 0;
+        if (t == BlockEntityType.BARREL) return 1;
+        if (t == BlockEntityType.SHULKER_BOX) return 2;
+        if (t == BlockEntityType.ENDER_CHEST) return 3;
+        return 4;
+    }
+
+    public static boolean active() { return MODULE.enabled || STORAGE_ESP.enabled; }
+
     private static final Predicate<BlockState> UNNATURAL_PRED = s -> UNNATURAL.contains(s.getBlock());
 
     public static void tick(Minecraft mc) {
-        if (!MODULE.enabled || mc.level == null || mc.player == null) return;
+        if (!active() || mc.level == null || mc.player == null) return;
 
         ChunkPos center = mc.player.chunkPosition();
         int side = radius * 2 + 1;
         int total = side * side;
-        for (int i = 0; i < perTick; i++) {
+        long now = mc.level.getGameTime();
+        int scanned = 0;
+        for (int step = 0; step < 48 && scanned < perTick; step++) {
             cursor = (cursor + 1) % total;
             int cx = cx(center) - radius + cursor % side;
             int cz = cz(center) - radius + cursor / side;
-            ChunkAccess access = mc.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
             long key = ChunkPos.asLong(cx, cz);
+            ChunkAccess access = mc.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
             if (!(access instanceof LevelChunk chunk)) { results.remove(key); continue; }
-            results.put(key, scan(chunk));
+            Result old = results.get(key);
+            if (old != null && now - old.scannedAt() < 200) continue; // scanned in the last 10 s
+            results.put(key, scan(chunk, now));
+            scanned++;
         }
 
         if (++sinceRefresh >= 20) { // refresh clusters once per second
@@ -82,16 +101,20 @@ public class SusChunks {
         }
     }
 
-    private static Result scan(LevelChunk chunk) {
+    private static Result scan(LevelChunk chunk, long now) {
         int storage = 0;
         boolean spawner = false;
+        List<Long> sp = new ArrayList<>();
+        List<Byte> sk = new ArrayList<>();
         for (BlockPos p : chunk.getBlockEntitiesPos()) {
             BlockEntity be = chunk.getBlockEntity(p);
             if (be == null) continue;
             BlockEntityType<?> t = be.getType();
             if (t == BlockEntityType.MOB_SPAWNER) spawner = true;
-            else if (STORAGE.contains(t)) storage++;
+            else if (STORAGE.contains(t)) { storage++; sp.add(p.asLong()); sk.add(kind(t)); }
         }
+        long[] pos = new long[sp.size()]; byte[] kinds = new byte[sp.size()];
+        for (int i = 0; i < pos.length; i++) { pos[i] = sp.get(i); kinds[i] = sk.get(i); }
         if (spawner) storage = Math.max(0, storage - 3); // dungeon / mineshaft chests
 
         int flags = 0;
@@ -100,7 +123,7 @@ public class SusChunks {
             if (s.maybeHas(UNNATURAL_PRED)) flags++;
         }
         int score = storage * 3 + flags * 2;
-        return new Result(storage, flags, spawner, score);
+        return new Result(storage, flags, spawner, score, pos, kinds, now);
     }
 
     private static void refresh(Minecraft mc, ChunkPos center) {
@@ -117,13 +140,20 @@ public class SusChunks {
                     if (n != null) cluster += n.score() * 0.5;
                 }
             }
-            if (cluster >= threshold) out.add(new Hit(cp, (int) cluster, r.storage()));
+            if (cluster >= threshold) {
+                int surf = mc.level.getMinY();
+                int bx = cx(cp) * 16, bz = cz(cp) * 16;
+                for (int sx = 0; sx <= 15; sx += 5)
+                    for (int sz = 0; sz <= 15; sz += 5)
+                        surf = Math.max(surf, mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING, bx + sx, bz + sz));
+                out.add(new Hit(cp, (int) cluster, r.storage(), surf));
+            }
         }
         out.sort((a, b) -> Integer.compare(b.clusterScore(), a.clusterScore()));
         hits = out.size() > 50 ? out.subList(0, 50) : out;
 
         for (Hit h : hits) {
-            if (notified.add(ChunkPos.asLong(cx(h.pos()), cz(h.pos()))) && mc.player != null) {
+            if (MODULE.enabled && notified.add(ChunkPos.asLong(cx(h.pos()), cz(h.pos()))) && mc.player != null) {
                 mc.player.displayClientMessage(Component.literal("[Fit] sus chunk at " + (cx(h.pos()) * 16 + 8)
                         + ", " + (cz(h.pos()) * 16 + 8) + "  score " + h.clusterScore()), false);
             }
@@ -135,6 +165,8 @@ public class SusChunks {
     public static int cz(ChunkPos p) { return p.z; }
 
     public static List<Hit> hits() { return hits; }
+
+    public static java.util.Collection<Result> allResults() { return results.values(); }
 
     public static Result resultAt(int cx, int cz) { return results.get(ChunkPos.asLong(cx, cz)); }
 
