@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
@@ -107,6 +108,8 @@ public final class SusRender {
         }
 
         if (esp) {
+            RenderType xr = XRay.lines();
+            VertexConsumer xray = ctx.consumers().getBuffer(xr);
             int drawn = 0;
             int pcx = (int) Math.floor(px / 16.0), pcz = (int) Math.floor(pz / 16.0);
             int rc = (int) (ESP_RANGE / 16) + 1;
@@ -123,11 +126,12 @@ public final class SusRender {
                         double dx = bx + 0.5 - px, dz = bz + 0.5 - pz;
                         if (dx * dx + dz * dz > r2) continue;
                         int[] c = KIND[kinds[i]];
-                        box(lines, pose, bx - cam.x, by - cam.y, bz - cam.z, c[0], c[1], c[2]);
+                        box(xray, pose, bx - cam.x, by - cam.y, bz - cam.z, c[0], c[1], c[2]);
                         if (++drawn >= MAX_BOXES) break outer;
                     }
                 }
             }
+            if (ctx.consumers() instanceof MultiBufferSource.BufferSource bs) bs.endBatch(xr); // draw now
         }
     }
 

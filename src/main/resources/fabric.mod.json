@@ -7,6 +7,7 @@
 	"authors": ["pupitarek7-create"],
 	"license": "MIT",
 	"environment": "client",
+	"accessWidener": "fitclient.accesswidener",
 	"entrypoints": {
 		"client": ["net.fitclient.FitClient"]
 	},
