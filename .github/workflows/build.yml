@@ -27,7 +27,11 @@ jobs:
         if: always()
         run: |
           MJ=$(find ~/.gradle/caches/fabric-loom/minecraftMaven -name 'minecraft-clientonly-1*.jar' ! -name '*intermediary*' | head -1)
-          javap -cp "$MJ" net.minecraft.client.renderer.rendertype.RenderTypes | grep -iE "line|debug|quad|filled|outline|translucent" | head -40
+          echo "###A"; javap -cp "$MJ" -p net.minecraft.client.renderer.rendertype.RenderType | grep -E "create|static" | head -20
+          echo "###B"; javap -cp "$MJ" -p net.minecraft.client.renderer.rendertype.RenderSetup 'net.minecraft.client.renderer.rendertype.RenderSetup$RenderSetupBuilder' | head -60
+          echo "###C"; javap -cp "$MJ" -p 'com.mojang.blaze3d.pipeline.RenderPipeline$Builder' | head -50
+          echo "###D"; javap -cp "$MJ" -p net.minecraft.client.renderer.RenderPipelines | grep -iE "LINES|DEBUG_QUADS|SNIPPET" | head -20
+          echo "###E"; javap -cp "$MJ" -p com.mojang.blaze3d.platform.DepthTestFunction | head -12
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:

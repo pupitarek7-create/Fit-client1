@@ -36,7 +36,7 @@ public class SusChunks {
     public static final Module STORAGE_ESP = new Module("Storage ESP", "Boxes around chests, barrels, shulkers", "").on();
 
     // settings (editable from the Settings tab)
-    public static int radius = 16;      // chunks around you
+    public static int radius = 12;      // chunks around you
     public static int perTick = 3;      // chunks scanned per tick
     public static int threshold = 12;   // cluster score that counts as "sus"
 
@@ -152,10 +152,13 @@ public class SusChunks {
         out.sort((a, b) -> Integer.compare(b.clusterScore(), a.clusterScore()));
         hits = out.size() > 50 ? out.subList(0, 50) : out;
 
+        int pings = 0;
         for (Hit h : hits) {
+            if (pings >= 1) break; // at most one chat ping per second
             if (MODULE.enabled && notified.add(ChunkPos.asLong(cx(h.pos()), cz(h.pos()))) && mc.player != null) {
                 mc.player.displayClientMessage(Component.literal("[Fit] sus chunk at " + (cx(h.pos()) * 16 + 8)
                         + ", " + (cz(h.pos()) * 16 + 8) + "  score " + h.clusterScore()), false);
+                pings++;
             }
         }
     }

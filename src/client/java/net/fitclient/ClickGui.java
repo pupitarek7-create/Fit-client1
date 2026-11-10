@@ -168,7 +168,7 @@ public class ClickGui extends Screen {
                     SusChunks.Result res = SusChunks.resultAt(SusChunks.cx(me) + dx, SusChunks.cz(me) + dz);
                     if (res != null && res.score() >= SusChunks.threshold) {
                         int gx = x + 14 + (dx + r) * pitch, gy = y + 14 + (dz + r) * pitch;
-                        Ui.glow(g, gx, gy, cell, cell, 4, 0xFF8EC8, 30);
+                        Ui.glow(g, gx, gy, cell, cell, 3, 0xFF8EC8, 30);
                     }
                 }
             }
@@ -183,7 +183,7 @@ public class ClickGui extends Screen {
                         else col = 0xFF2B2336;
                     }
                     int gx = x + 14 + (dx + r) * pitch, gy = y + 14 + (dz + r) * pitch;
-                    Ui.round(g, gx, gy, cell, cell, 3, col);
+                    Ui.cell(g, gx, gy, cell, col);
                 }
             }
             int pxm = x + 14 + r * pitch, pym = y + 14 + r * pitch;

@@ -47,38 +47,48 @@ public final class Ui {
     }
 
     // ---------------------------------------------------------------- shapes
-    /** Filled rounded rectangle with anti-aliased corners. */
+    /** Filled rounded rectangle with anti-aliased corners. Few fill calls: one per corner row + a few AA pixels. */
     public static void round(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
         r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
         if (r == 0) { g.fill(x, y, x + w, y + h, color); return; }
-        g.fill(x + r, y, x + w - r, y + h, color);              // middle column
-        g.fill(x, y + r, x + r, y + h - r, color);              // left strip
-        g.fill(x + w - r, y + r, x + w, y + h - r, color);      // right strip
-        int a0 = color >>> 24;
+        g.fill(x, y + r, x + w, y + h - r, color);              // middle band
+        int a0 = color >>> 24, rgb = color & 0x00FFFFFF;
+        int[][] cov = coverTable(r);
         for (int cy = 0; cy < r; cy++) {
-            for (int cx = 0; cx < r; cx++) {
-                int cov = coverage(r, cx, cy);
-                if (cov == 0) continue;
-                int c = cov == 16 ? color : (color & 0x00FFFFFF) | (((a0 * cov) / 16) << 24);
-                g.fill(x + cx, y + cy, x + cx + 1, y + cy + 1, c);                       // top-left
-                g.fill(x + w - 1 - cx, y + cy, x + w - cx, y + cy + 1, c);               // top-right
-                g.fill(x + cx, y + h - 1 - cy, x + cx + 1, y + h - cy, c);               // bottom-left
-                g.fill(x + w - 1 - cx, y + h - 1 - cy, x + w - cx, y + h - cy, c);       // bottom-right
+            int[] row = cov[cy];
+            int first = r, full = r;
+            for (int cx = 0; cx < r; cx++) { if (first == r && row[cx] > 0) first = cx; if (row[cx] == 16) { full = cx; break; } }
+            for (int cx = first; cx < full; cx++) {
+                int c = (rgb) | (((a0 * row[cx]) / 16) << 24);
+                g.fill(x + cx, y + cy, x + cx + 1, y + cy + 1, c);
+                g.fill(x + w - 1 - cx, y + cy, x + w - cx, y + cy + 1, c);
+                g.fill(x + cx, y + h - 1 - cy, x + cx + 1, y + h - cy, c);
+                g.fill(x + w - 1 - cx, y + h - 1 - cy, x + w - cx, y + h - cy, c);
             }
+            g.fill(x + full, y + cy, x + w - full, y + cy + 1, color);
+            g.fill(x + full, y + h - 1 - cy, x + w - full, y + h - cy, color);
         }
     }
 
-    // how much of pixel (cx,cy) inside an r x r corner lies within the quarter circle (0..16)
-    private static final int[][][] COVER_CACHE = new int[64][][];
+    /** Cheap rounded cell (3 fills, 1px corner cut) for dense grids. */
+    public static void cell(GuiGraphics g, int x, int y, int s, int color) {
+        g.fill(x + 1, y, x + s - 1, y + s, color);
+        g.fill(x, y + 1, x + 1, y + s - 1, color);
+        g.fill(x + s - 1, y + 1, x + s, y + s - 1, color);
+    }
 
-    private static int coverage(int r, int cx, int cy) {
-        if (r >= COVER_CACHE.length) return computeCoverage(r, cx, cy);
-        if (COVER_CACHE[r] == null) {
-            int[][] t = new int[r][r];
-            for (int j = 0; j < r; j++) for (int i = 0; i < r; i++) t[j][i] = computeCoverage(r, i, j);
-            COVER_CACHE[r] = t;
-        }
-        return COVER_CACHE[r][cy][cx];
+    private static final int[][][] COVER_CACHE = new int[96][][];
+
+    private static int[][] coverTable(int r) {
+        if (r >= COVER_CACHE.length) return buildCover(r);
+        if (COVER_CACHE[r] == null) COVER_CACHE[r] = buildCover(r);
+        return COVER_CACHE[r];
+    }
+
+    private static int[][] buildCover(int r) {
+        int[][] t = new int[r][r];
+        for (int j = 0; j < r; j++) for (int i = 0; i < r; i++) t[j][i] = computeCoverage(r, i, j);
+        return t;
     }
 
     private static int computeCoverage(int r, int cx, int cy) {
@@ -100,9 +110,9 @@ public final class Ui {
 
     /** Soft glow: a few expanding translucent rounded rects behind something. */
     public static void glow(GuiGraphics g, int x, int y, int w, int h, int r, int rgb, int strength) {
-        for (int i = 6; i >= 1; i--) {
-            int a = Math.max(1, strength * (7 - i) / 28);
-            round(g, x - i * 2, y - i * 2, w + i * 4, h + i * 4, r + i * 2, (a << 24) | (rgb & 0xFFFFFF));
+        for (int i = 4; i >= 1; i--) {
+            int a = Math.max(1, strength * (5 - i) / 18);
+            round(g, x - i * 3, y - i * 3, w + i * 6, h + i * 6, r + i * 3, (a << 24) | (rgb & 0xFFFFFF));
         }
     }
 
